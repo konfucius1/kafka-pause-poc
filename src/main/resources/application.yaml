@@ -9,10 +9,12 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: manual
 
 poc:
   kafka:
     topic-name: "flaky-topic"
     consumer:
       listener-id: "myPausingListener"
-      pause-duration-ms: 30000
+      pause-duration-ms: 10000
