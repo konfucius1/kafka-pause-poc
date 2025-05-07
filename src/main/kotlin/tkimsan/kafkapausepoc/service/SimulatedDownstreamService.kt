@@ -1,7 +1,8 @@
-package tkimsan.kafkapausepoc
+package tkimsan.kafkapausepoc.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import tkimsan.kafkapausepoc.exception.SimulatedServiceUnavailableException
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Service
@@ -20,7 +21,7 @@ class SimulatedDownstreamService {
     }
 
     fun setServiceUnavailable(isUnavailable: Boolean) {
-        serviceUnavailable.set(true)
+        serviceUnavailable.set(isUnavailable)
         logger.info("SimulatedDownstreamService: Service available status set to: {}", !isUnavailable)
     }
 
