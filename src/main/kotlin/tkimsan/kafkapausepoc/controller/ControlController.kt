@@ -1,4 +1,4 @@
-package tkimsan.kafkapausepoc
+package tkimsan.kafkapausepoc.controller
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
@@ -8,13 +8,14 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tkimsan.kafkapausepoc.service.SimulatedDownstreamService
 
 @RestController
 @RequestMapping("/control")
 class ControlController(
     private val simulatedDownstreamService: SimulatedDownstreamService,
     private val kafkaTemplate: KafkaTemplate<String, String>,
-    @Value("\${poc.kafka.topic-name") private val topicName: String
+    @Value("\${poc.kafka.topic-name}") private val topicName: String
 ) {
 
     @PostMapping("/service/unavailable")
