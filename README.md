@@ -1,5 +1,40 @@
 # Kafka Pause POC
 
+## Overview
+
+This application demonstrates a proof-of-concept (POC) for pausing and automatically resuming a Spring Kafka consumer. This pattern can be useful when a downstream service, which the Kafka
+consumer depends on for message processing, becomes temporarily unavailable. Instead of continuously retrying, overwhelming the downstream service, or logging excessive errors, the consumer
+pauses its message processing for a configurable duration and then attempts to resume. The goal is to handle transient downstream issues gracefully.
+
+## Core Mechanism: Consumer Pause and Resume
+
+The main components involved in this pause and resume mechanism are:
+
+1. **`KafkaConsumerService`**:
+   * Listens to messages on the configured Kafka topic (`poc.kafka.topic-name`)
+   * For each message, it attempts to process it by calling the `SimulateDownstreamService`
+   * If `SimulatedDownstreamService` throws a `SimulatedServiceUnavailableException`, the `KafkaConsumerService`
+   * Does **not** acknowledge the Kafka message. This is critical, as it ensures the message will be redelivered after the consumer resumes 
+   * Calls `ConsumerControlService.pauseConsumer()` to initiate the pause
+2. **`SimulatedDownstreamService`**:
+   * Mimics a real downstream service that the Kafka consumer might depend on 
+   * Its availability can be toggled via an HTTP endpoint (`/control/service/endpoint`)
+   * When `processMessage` is called while it's set to "unavailable", it throws a `SimulatedServiceUnavailableException`
+3. **`ConsumerControlService`**:
+   * Manages the pausing and resuming of the Kafka listener container
+   * `pauseConsumer()`:
+     * Identifies the target `MessageListenerContainer` using the `poc.kafka.consumer.listener-id`
+     * If the container is running and not already paused, it calls `container.pause()`
+     * Schedules a task using a `ScheduledExecutorService` to call `resumeConsumer()` after `poc.kafka.consumer.pause-duration-ms`
+   * `resumeConsumer()`:
+     * Calls `container.resume()` on the target listener container
+     * In the current implementation, `resumeConsumer()` also unconditionally sets the `SimulatedDownstreamService` back to "available". In a real-world scenario, the resumption logic would likely re-check the actual downstream service's health before or after resuming the consumer, rather than assuming it's available.
+4. **`ControlController`**:
+   * Provides HTTP endpoints to:
+     * Toggle the availability of the `SimulatedDownstreamService`
+     * Check the current status of the `SimulatedDownstreamService`
+     * Send messages to the Kafka topic for testing purposes
+
 ## Testing
 
 ### Initial state
@@ -39,6 +74,26 @@
 - `POST http://localhost:8080/control/service/unavailable?unavailable=false`
 - Send a new message: POST http://localhost:8080/control/send?message=hello_again_1
 - Observe logs: Message should be processed successfully without any pausing.
+
+### Set service back to available and test normal operation:
+
+- `POST http://localhost:8080/control/service/unavailable?unavailable=false`
+- Send a new message: POST http://localhost:8080/control/send?message=hello_again_1
+- Observe logs: Message should be processed successfully without any pausing.
+
+## Key Configuration
+
+The primary behavior of the application and the Kafka consumer is configured in `src/main/resources/application.yaml`:
+
+-   `poc.kafka.topic-name`: Specifies the Kafka topic that the `KafkaConsumerService` will listen to.
+-   `poc.kafka.consumer.listener-id`: A unique identifier for the Kafka listener. This ID is crucial as the `ConsumerControlService` uses it to find and control the specific listener       
+    container (e.g., to pause and resume it).
+-   `poc.kafka.consumer.pause-duration-ms`: Defines the duration (in milliseconds) for which the consumer will remain paused after an issue is detected before an automatic resumption       
+    attempt is made.
+-   `spring.kafka.consumer.group-id`: The Kafka consumer group ID.
+-   `spring.kafka.listener.ack-mode`: Set to `manual` (or `manual_immediate`). This is essential for the POC's logic. By setting it to `manual`, the `KafkaConsumerService` receives an      
+    `Acknowledgment` object and can explicitly decide whether to acknowledge a message (on success) or not (on failure, allowing it to be re-processed after resume).
+-   `spring.kafka.bootstrap-servers`: The address of the Kafka brokers.
 
 ## Extensions
 
