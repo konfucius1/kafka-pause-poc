@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: kafka-pause-poc
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: my-pausing-consumer-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+poc:
+  kafka:
+    topic-name: "flaky-topic"
+    consumer:
+      listener-id: "myPausingListener"
+      pause-duration-ms: 30000
