@@ -11,7 +11,7 @@ class SimulatedDownstreamService {
     private val logger = KotlinLogging.logger {}
     private val serviceUnavailable = AtomicBoolean(false)
 
-    fun processMessage(message: String): String {
+    fun processMessage(key: String, message: String): String {
         if (serviceUnavailable.get()) {
             logger.warn("SimulatedDownstreamService: Service is unavailable (503).")
             throw SimulatedServiceUnavailableException("Service temporarily unavailable (503)")
