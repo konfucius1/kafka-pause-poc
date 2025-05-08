@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit
 @Service
 class ConsumerControlService(
     private val kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry,
-    private val simulatedDownstreamService: SimulatedDownstreamService,
     @Value("\${poc.kafka.consumer.listener-id}") private val listenerId: String,
     @Value("\${poc.kafka.consumer.pause-duration-ms}") private val pauseDurationMs: Long,
 ) {
@@ -47,7 +46,6 @@ class ConsumerControlService(
         if (listenerContainer != null && listenerContainer.isContainerPaused) {
             logger.info("Resuming Kafka consumer (id: {}).", listenerId)
             listenerContainer.resume()
-            simulatedDownstreamService.setServiceUnavailable(false)
         } else {
             logger.warn("Could not resume Kafka consumer (id: {}). Container not found or not paused.", listenerId)
         }
