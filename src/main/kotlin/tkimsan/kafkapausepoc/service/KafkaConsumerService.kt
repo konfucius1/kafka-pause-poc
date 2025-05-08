@@ -2,8 +2,8 @@ package tkimsan.kafkapausepoc.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.kafka.annotation.KafkaListener
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Service
 import tkimsan.kafkapausepoc.exception.SimulatedServiceUnavailableException
@@ -12,7 +12,7 @@ import tkimsan.kafkapausepoc.exception.SimulatedServiceUnavailableException
 class KafkaConsumerService(
     private val simulatedDownstreamService: SimulatedDownstreamService,
     private val consumerControlService: ConsumerControlService,
-    @Value("\${poc.kafka.consumer.listener-id}") private val configuredListenerId: String
+    private val kafkaTemplate: KafkaTemplate<String, String>
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -29,8 +29,9 @@ class KafkaConsumerService(
         )
 
         try {
-            val result = simulatedDownstreamService.processMessage(record.value())
+            val result = simulatedDownstreamService.processMessage(record.key(), record.value())
             logger.info("Message processed successfully: {}", result)
+            kafkaTemplate.send("flaky-output-topic", record.key(), record.value()) // Chuck messages in a sink topic for testing
             ack.acknowledge() // Acknowledge message after successful processing
         } catch (e: SimulatedServiceUnavailableException) {
             logger.error(
@@ -40,10 +41,7 @@ class KafkaConsumerService(
             // DO NOT acknowledge the message as it hasn't been processed.
             // The consumer will re-poll this message after resuming.
             consumerControlService.pauseConsumer()
-            // ack.acknowledge() // DO NOT ACKNOWLEDGE HERE
-            // Instead of re-throwing, we let the pause mechanism handle it.
-            // If we re-throw, Spring Kafka's error handlers would kick in, which might be an alternative way to handle this.
-            // For this POC, direct pause is demonstrated.
+            throw e
         } catch (e: Exception) {
             logger.error(
                 "Unexpected error processing message - Key: {}, Value: {}. Error: {}",
